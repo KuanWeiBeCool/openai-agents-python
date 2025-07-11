@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp import ClientSession, StdioServerParameters, Tool as MCPTool, stdio_client
+from mcp.client.session import ElicitationFnT
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import GetSessionIdCallback, streamablehttp_client
 from mcp.shared.message import SessionMessage
@@ -86,6 +87,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         cache_tools_list: bool,
         client_session_timeout_seconds: float | None,
         tool_filter: ToolFilter = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ):
         """
         Args:
@@ -98,6 +100,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
 
             client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
             tool_filter: The tool filter to use for filtering tools.
+            elicitation_callback: An optional callback to handle elicitation requests.
         """
         self.session: ClientSession | None = None
         self.exit_stack: AsyncExitStack = AsyncExitStack()
@@ -106,6 +109,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
         self.server_initialize_result: InitializeResult | None = None
 
         self.client_session_timeout_seconds = client_session_timeout_seconds
+        self.elicitation_callback = elicitation_callback
 
         # The cache is always dirty at startup, so that we fetch tools at least once
         self._cache_dirty = True
@@ -231,6 +235,7 @@ class _MCPServerWithClientSession(MCPServer, abc.ABC):
                     timedelta(seconds=self.client_session_timeout_seconds)
                     if self.client_session_timeout_seconds
                     else None,
+                    elicitation_callback=self.elicitation_callback,
                 )
             )
             server_result = await session.initialize()
@@ -346,6 +351,7 @@ class MCPServerStdio(_MCPServerWithClientSession):
         name: str | None = None,
         client_session_timeout_seconds: float | None = 5,
         tool_filter: ToolFilter = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ):
         """Create a new MCP server based on the stdio transport.
 
@@ -364,11 +370,13 @@ class MCPServerStdio(_MCPServerWithClientSession):
                 command.
             client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
             tool_filter: The tool filter to use for filtering tools.
+            elicitation_callback: An optional callback to handle elicitation requests.
         """
         super().__init__(
             cache_tools_list,
             client_session_timeout_seconds,
             tool_filter,
+            elicitation_callback,
         )
 
         self.params = StdioServerParameters(
@@ -429,6 +437,7 @@ class MCPServerSse(_MCPServerWithClientSession):
         name: str | None = None,
         client_session_timeout_seconds: float | None = 5,
         tool_filter: ToolFilter = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ):
         """Create a new MCP server based on the HTTP with SSE transport.
 
@@ -449,11 +458,13 @@ class MCPServerSse(_MCPServerWithClientSession):
 
             client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
             tool_filter: The tool filter to use for filtering tools.
+            elicitation_callback: An optional callback to handle elicitation requests.
         """
         super().__init__(
             cache_tools_list,
             client_session_timeout_seconds,
             tool_filter,
+            elicitation_callback,
         )
 
         self.params = params
@@ -514,6 +525,7 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
         name: str | None = None,
         client_session_timeout_seconds: float | None = 5,
         tool_filter: ToolFilter = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ):
         """Create a new MCP server based on the Streamable HTTP transport.
 
@@ -535,11 +547,13 @@ class MCPServerStreamableHttp(_MCPServerWithClientSession):
 
             client_session_timeout_seconds: the read timeout passed to the MCP ClientSession.
             tool_filter: The tool filter to use for filtering tools.
+            elicitation_callback: An optional callback to handle elicitation requests.
         """
         super().__init__(
             cache_tools_list,
             client_session_timeout_seconds,
             tool_filter,
+            elicitation_callback,
         )
 
         self.params = params
